@@ -14,6 +14,18 @@ Watfa is an iOS and Android app concept connecting customers and barbers. The fi
 
 **Important:** the current head is procedural demo geometry, not a scan of a real person. Hair presets are illustrative and the barber checklist is not AI-generated or validated cutting advice.
 
+## Build an Android APK without a local terminal
+
+A GitHub Actions workflow can build a debug APK on GitHub's hosted runner:
+
+1. Open the repository's **Actions** tab.
+2. Select **Android APK**.
+3. Click **Run workflow**, keep the `main` branch selected, then start the run.
+4. Open the completed run and download the `watfa-android-debug-apk` artifact.
+5. Extract the ZIP on your Android phone and open `app-debug.apk`. Android may ask you to allow installs from the browser or file manager you used. Only install APKs you built or trust.
+
+This is a debug/testing APK, not a Play Store release. The first cloud build may take several minutes and can fail if a dependency or native build setting needs adjustment. Check the workflow log for the actual result.
+
 ## Run locally
 
 Use Node.js LTS and a compatible iOS or Android development environment.
