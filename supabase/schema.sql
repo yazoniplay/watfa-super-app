@@ -70,6 +70,56 @@ create index if not exists appointments_barber_start_idx
 create index if not exists haircut_history_user_created_idx
   on public.haircut_history(user_id, created_at desc);
 
+-- Prevent two pending/confirmed appointments from occupying the same barber's time.
+-- Pending requests hold the slot until cancelled or otherwise resolved.
+create extension if not exists btree_gist;
+alter table public.appointments
+  add constraint appointments_no_barber_overlap
+  exclude using gist (
+    barber_id with =,
+    tstzrange(starts_at, ends_at, '[)') with &&
+  )
+  where (status in ('pending', 'confirmed'));
+
+-- Validate that the chosen service belongs to the selected barber and that
+-- the appointment duration matches the service's configured duration.
+create or replace function public.validate_watfa_appointment()
+returns trigger
+language plpgsql
+set search_path = ''
+as $
+declare
+  service_duration integer;
+begin
+  if new.starts_at <= now() then
+    raise exception 'Appointment must start in the future';
+  end if;
+
+  select s.duration_minutes
+    into service_duration
+    from public.services s
+   where s.id = new.service_id
+     and s.barber_id = new.barber_id
+     and s.is_active = true;
+
+  if service_duration is null then
+    raise exception 'Selected service is unavailable for this barber';
+  end if;
+
+  if new.ends_at <> new.starts_at + make_interval(mins => service_duration) then
+    raise exception 'Appointment duration does not match the selected service';
+  end if;
+
+  return new;
+end;
+$;
+
+drop trigger if exists validate_watfa_appointment on public.appointments;
+create trigger validate_watfa_appointment
+  before insert or update of barber_id, service_id, starts_at, ends_at
+  on public.appointments
+  for each row execute procedure public.validate_watfa_appointment();
+
 alter table public.profiles enable row level security;
 alter table public.barber_profiles enable row level security;
 alter table public.services enable row level security;
