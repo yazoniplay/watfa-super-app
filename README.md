@@ -2,9 +2,13 @@
 
 Watfa is an iOS and Android app concept connecting customers and barbers. The first technical milestone is a rotatable 3D head viewer and a curated hairstyle selector; personalized face reconstruction and AI-generated haircut guidance are planned next.
 
-## Current prototype
+## Current app features
 
 - Front-camera capture with an in-session photo preview
+- Supabase email/password account creation and sign-in UI, with persistent session storage
+- Save haircut choices to a signed-in user's history and view appointment history
+- Barber/service browsing from Supabase and pending appointment requests
+- Secure endpoint hooks for photo-aware haircut recommendations, generated hairstyle previews, and hosted checkout
 - Style-finder questionnaire with clearly labelled rule-based suggestions (not AI)
 - Initial Supabase SQL schema for profiles, barber services, haircut history, private scan metadata, and appointments
 
