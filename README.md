@@ -1,6 +1,6 @@
 # Watfa — AI Barber Super App
 
-Watfa is an iOS and Android app concept connecting customers and barbers. The first technical milestone is a rotatable 3D head viewer and a curated hairstyle selector; personalized face reconstruction and AI-generated haircut guidance are planned next.
+Watfa is an early-stage Expo app for customers and barbers. It now includes a deployed, authenticated AI hairstyle-photo-preview endpoint and AI haircut recommendations. It is suitable for controlled testing, but it is not yet a production-ready public marketplace.
 
 ## Current app features
 
@@ -8,7 +8,8 @@ Watfa is an iOS and Android app concept connecting customers and barbers. The fi
 - Supabase email/password account creation and sign-in UI, with persistent session storage
 - Save haircut choices to a signed-in user's history and view appointment history
 - Barber/service browsing from Supabase and pending appointment requests
-- Secure endpoint hooks for photo-aware haircut recommendations, generated hairstyle previews, and hosted checkout
+- Deployed Supabase Edge Functions for authenticated AI haircut recommendations and AI-generated hairstyle photo previews
+- AI preview requests show a loading state and return the generated image in the app
 - Style-finder questionnaire with clearly labelled rule-based suggestions (not AI)
 - Initial Supabase SQL schema for profiles, barber services, haircut history, private scan metadata, and appointments
 
@@ -20,7 +21,7 @@ Watfa is an iOS and Android app concept connecting customers and barbers. The fi
 - Draft barber checklist
 - Dark, warm-neutral visual system
 
-**Important:** the current head is procedural demo geometry, not a scan of a real person. Hair presets are illustrative and the barber checklist is not AI-generated or validated cutting advice.
+**Important limitations:** the rotatable 3D head is procedural demo geometry, not a scan of the user. The strand meshes are visual approximations, not photorealistic hair. The camera hairline guide is manually aligned and does not track facial landmarks. AI photo previews are generated edits, not a live 3D reconstruction, and may vary in accuracy. The barber checklist is not validated cutting advice.
 
 ## Build an Android APK without a local terminal
 
@@ -48,7 +49,7 @@ Scan the QR code with Expo Go if the native dependencies are supported by your i
 
 ## Backend groundwork and current limitations
 
-The face photo is currently kept only in app state for the current session; Watfa does not upload it. The style finder is rule-based and does not inspect the photo. The **Preview on my photo** action explains that a secure image-generation backend is required; it does not generate an edited image yet. Accounts, persistent history, real booking, and payments are not live. See [`supabase/README.md`](supabase/README.md) and [`supabase/schema.sql`](supabase/schema.sql) for the database foundation. Do not take real bookings or payments until the server-side booking and payment flows are implemented and tested.
+The face photo stays in app state until the user requests an AI recommendation with a photo or an AI photo preview; those requests send it to the secured Supabase Edge Function, which forwards it to Google Gemini for processing. Do not upload photos without the user’s explicit action. Account creation, saved haircut history, and pending appointment requests are wired to Supabase, but they still need end-to-end device testing. Barber onboarding/availability management, confirmed booking workflows, push notifications, production privacy/deletion flows, and payments are not launch-ready. Payments are intentionally skipped for the initial version; customers can request a booking and pay at the barbershop. Do not market the procedural 3D model or static camera guide as realistic face scanning or automatic AR tracking.
 
 ## Planned architecture
 
