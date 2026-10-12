@@ -280,6 +280,55 @@ export default function App() {
           </Text>
         </View>
 
+        <View style={styles.featureCard}>
+          <View style={styles.featureHeadingRow}>
+            <View style={styles.featureHeadingCopy}>
+              <Text style={styles.featureEyebrow}>PERSONAL FIT</Text>
+              <Text style={styles.featureTitle}>Start with your photo</Text>
+              <Text style={styles.featureDescription}>Capture a front-facing photo to prepare for personalized hairstyle tools.</Text>
+            </View>
+            <View style={styles.featureIcon}><Text style={styles.featureIconText}>◎</Text></View>
+          </View>
+          {facePhotoUri ? (
+            <Image source={{ uri: facePhotoUri }} style={styles.facePhoto} resizeMode="cover" />
+          ) : (
+            <View style={styles.photoPlaceholder}>
+              <Text style={styles.photoPlaceholderIcon}>＋</Text>
+              <Text style={styles.photoPlaceholderText}>No photo captured</Text>
+            </View>
+          )}
+          <Pressable style={styles.secondaryButton} onPress={captureFacePhoto}>
+            <Text style={styles.secondaryButtonText}>{facePhotoUri ? "Retake face photo" : "Open camera"}</Text>
+          </Pressable>
+          <Text style={styles.privacyNote}>Privacy: this prototype keeps the photo URI in the current app session. It does not upload or save the image to an account.</Text>
+        </View>
+
+        <View style={styles.featureCard}>
+          <Text style={styles.featureEyebrow}>STYLE FINDER</Text>
+          <Text style={styles.featureTitle}>Get a starting recommendation</Text>
+          <Text style={styles.featureDescription}>Choose what best describes you. This is rule-based guidance for now, not an AI analysis of your photo.</Text>
+          <Text style={styles.fieldLabel}>Face shape</Text>
+          <View style={styles.choiceWrap}>
+            {(["Oval", "Round", "Square", "Heart", "Not sure"] as const).map((item) => (
+              <Pill key={item} label={item} active={faceShape === item} onPress={() => setFaceShape(item)} />
+            ))}
+          </View>
+          <Text style={styles.fieldLabel}>Hair texture</Text>
+          <View style={styles.choiceWrap}>
+            {(["Straight", "Wavy", "Curly", "Coily", "Not sure"] as const).map((item) => (
+              <Pill key={item} label={item} active={hairTexture === item} onPress={() => setHairTexture(item)} />
+            ))}
+          </View>
+          <Pressable style={styles.primaryButton} onPress={getRecommendation}>
+            <Text style={styles.primaryButtonText}>Suggest styles ↗</Text>
+          </Pressable>
+          {recommendation && <View style={styles.resultPanel}><Text style={styles.resultTitle}>Your starting point</Text><Text style={styles.resultText}>{recommendation}</Text><Text style={styles.privacyNote}>General style ideas only. Face shape is not a measure of attractiveness, and a barber can adapt the cut to your preferences.</Text></View>}
+          <Pressable style={styles.secondaryButton} onPress={requestRealisticPreview}>
+            <Text style={styles.secondaryButtonText}>Preview on my photo</Text>
+          </Pressable>
+          {previewMessage && <Text style={styles.statusMessage}>{previewMessage}</Text>}
+        </View>
+
         <View style={styles.viewerCard}>
           <View style={styles.viewerTopline}>
             <View style={styles.liveDot} />
