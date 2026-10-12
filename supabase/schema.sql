@@ -128,3 +128,43 @@ create policy "customers cancel own appointment" on public.appointments
 -- 2. Do not let clients set payment_status to 'paid'; enforce payments server-side.
 -- 3. Configure a private Storage bucket and storage.objects RLS before uploading face photos.
 -- 4. Add appointment-overlap prevention and server-side availability checks before launch.
+
+
+-- Automatically create a profile when a new Supabase Auth user signs up.
+create or replace function public.handle_new_user_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, display_name)
+  values (new.id, nullif(new.raw_user_meta_data ->> 'display_name', ''))
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_watfa_profile on auth.users;
+create trigger on_auth_user_created_watfa_profile
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user_profile();
+
+-- Prevent users from granting themselves the barber role via profile updates.
+create or replace function public.prevent_self_role_change()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.role is distinct from old.role and coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'Profile role changes require an administrator';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_watfa_profile_role on public.profiles;
+create trigger protect_watfa_profile_role
+  before update on public.profiles
+  for each row execute procedure public.prevent_self_role_change();
