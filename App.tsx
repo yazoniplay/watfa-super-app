@@ -1,0 +1,413 @@
+import React, { Suspense, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  PanResponder,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import { Canvas } from "@react-three/fiber/native";
+import * as THREE from "three";
+
+type HairStyle = {
+  id: string;
+  name: string;
+  description: string;
+  topScale: [number, number, number];
+  fringe: boolean;
+};
+
+const HAIR_STYLES: HairStyle[] = [
+  {
+    id: "textured",
+    name: "Textured crop",
+    description: "Short sides · textured top",
+    topScale: [0.84, 0.52, 0.78],
+    fringe: true,
+  },
+  {
+    id: "curly",
+    name: "Curly top",
+    description: "Natural volume · low taper",
+    topScale: [0.9, 0.65, 0.84],
+    fringe: false,
+  },
+  {
+    id: "slick",
+    name: "Classic sweep",
+    description: "Scissor cut · soft shape",
+    topScale: [0.91, 0.43, 0.84],
+    fringe: false,
+  },
+  {
+    id: "buzz",
+    name: "Buzz cut",
+    description: "Uniform · low maintenance",
+    topScale: [0.87, 0.24, 0.8],
+    fringe: false,
+  },
+];
+
+function HeadModel({ style, rotation }: { style: HairStyle; rotation: number }) {
+  const skin = "#C99170";
+  const hair = "#292522";
+  const eye = "#211B19";
+
+  return (
+    <group rotation={[0, rotation, 0]}>
+      {/* A procedural placeholder head: real photo reconstruction comes later. */}
+      <mesh position={[0, -0.04, 0]} scale={[0.78, 1.02, 0.72]}>
+        <sphereGeometry args={[1, 48, 40]} />
+        <meshStandardMaterial color={skin} roughness={0.76} />
+      </mesh>
+
+      {/* Ears */}
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * 0.76, -0.1, 0.02]} scale={[0.16, 0.25, 0.13]}>
+          <sphereGeometry args={[1, 24, 20]} />
+          <meshStandardMaterial color={skin} roughness={0.82} />
+        </mesh>
+      ))}
+
+      {/* Hair cap and front fringe */}
+      <mesh position={[0, 0.58, -0.005]} scale={style.topScale}>
+        <sphereGeometry args={[1, 40, 28]} />
+        <meshStandardMaterial color={hair} roughness={0.93} />
+      </mesh>
+      {style.fringe && (
+        <mesh position={[0, 0.42, 0.59]} rotation={[0.15, 0, 0]} scale={[0.57, 0.17, 0.16]}>
+          <sphereGeometry args={[1, 28, 20]} />
+          <meshStandardMaterial color={hair} roughness={0.96} />
+        </mesh>
+      )}
+
+      {/* Eyes */}
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * 0.29, 0.13, 0.635]}>
+          <mesh scale={[0.105, 0.052, 0.035]}>
+            <sphereGeometry args={[1, 24, 16]} />
+            <meshStandardMaterial color="#F0DCCB" roughness={0.55} />
+          </mesh>
+          <mesh position={[0, 0, 0.03]} scale={[0.027, 0.033, 0.02]}>
+            <sphereGeometry args={[1, 20, 16]} />
+            <meshStandardMaterial color={eye} roughness={0.3} />
+          </mesh>
+          <mesh position={[0, 0.075, -0.005]} scale={[0.12, 0.035, 0.035]}>
+            <sphereGeometry args={[1, 20, 16]} />
+            <meshStandardMaterial color={hair} roughness={0.95} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Nose */}
+      <mesh position={[0, -0.08, 0.72]} rotation={[0.18, 0, 0]} scale={[0.12, 0.2, 0.15]}>
+        <sphereGeometry args={[1, 24, 20]} />
+        <meshStandardMaterial color="#B97D60" roughness={0.78} />
+      </mesh>
+
+      {/* Mouth */}
+      <mesh position={[0, -0.39, 0.66]} scale={[0.17, 0.027, 0.025]}>
+        <sphereGeometry args={[1, 24, 16]} />
+        <meshStandardMaterial color="#805044" roughness={0.7} />
+      </mesh>
+
+      {/* Neck */}
+      <mesh position={[0, -0.91, -0.02]} scale={[0.3, 0.38, 0.3]}>
+        <cylinderGeometry args={[0.72, 0.88, 1, 24]} />
+        <meshStandardMaterial color={skin} roughness={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
+function ModelStage({ style, onRotate }: { style: HairStyle; onRotate: (delta: number) => void }) {
+  const { width } = useWindowDimensions();
+  const rotation = useRef(0);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 3,
+        onPanResponderMove: (_, gesture) => {
+          rotation.current = gesture.dx * 0.012;
+          onRotate(rotation.current);
+        },
+        onPanResponderRelease: () => {
+          rotation.current = 0;
+        },
+      }),
+    [onRotate],
+  );
+
+  const [angle, setAngle] = useState(0);
+  const rotate = (delta: number) => {
+    setAngle((current) => current + delta);
+  };
+
+  return (
+    <View style={styles.modelStage} {...panResponder.panHandlers}>
+      <View pointerEvents="none" style={styles.modelGlow} />
+      <Canvas
+        style={{ width: Math.min(width - 44, 390), height: 340 }}
+        camera={{ position: [0, 0.05, 4.2], fov: 36 }}
+        gl={{ antialias: true, alpha: true }}
+      >
+        <color attach="background" args={["#171817"]} />
+        <ambientLight intensity={1.65} />
+        <directionalLight position={[3, 4, 5]} intensity={2.5} />
+        <directionalLight position={[-4, 1, -3]} intensity={1.1} color="#D5A879" />
+        <Suspense fallback={null}>
+          <HeadModel style={style} rotation={angle} />
+        </Suspense>
+      </Canvas>
+      <View style={styles.dragHint} pointerEvents="none">
+        <Text style={styles.dragHintText}>↔  DRAG TO ROTATE</Text>
+      </View>
+    </View>
+  );
+}
+
+function Pill({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.pill, active && styles.pillActive]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export default function App() {
+  const [mode, setMode] = useState<"Customer" | "Barber">("Customer");
+  const [selectedStyle, setSelectedStyle] = useState(HAIR_STYLES[0]);
+  const [saved, setSaved] = useState(false);
+  const [angleLabel, setAngleLabel] = useState("3D PREVIEW");
+  const [showPlan, setShowPlan] = useState(false);
+
+  const chooseAngle = (label: string, degrees: number) => {
+    setAngleLabel(label);
+    // Angle controls are represented by a lightweight viewer state in this first prototype.
+    setSelectedStyle((current) => current);
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#111211" />
+      <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View style={styles.brandRow}>
+            <View style={styles.brandMark}>
+              <Text style={styles.brandMarkText}>W</Text>
+            </View>
+            <View>
+              <Text style={styles.brandName}>WATFA</Text>
+              <Text style={styles.brandSub}>AI BARBER STUDIO</Text>
+            </View>
+          </View>
+          <Pressable style={styles.avatarButton} onPress={() => setMode(mode === "Customer" ? "Barber" : "Customer")}>
+            <Text style={styles.avatarInitial}>{mode === "Customer" ? "C" : "B"}</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.modeRow}>
+          <Text style={styles.eyebrow}>YOUR NEXT LOOK, REIMAGINED</Text>
+          <View style={styles.modeSwitch}>
+            <Pill label="Customer" active={mode === "Customer"} onPress={() => setMode("Customer")} />
+            <Pill label="Barber" active={mode === "Barber"} onPress={() => setMode("Barber")} />
+          </View>
+        </View>
+
+        <View style={styles.intro}>
+          <Text style={styles.title}>{mode === "Customer" ? "Find your next" : "Design the perfect"}</Text>
+          <Text style={[styles.title, styles.titleAccent]}>{mode === "Customer" ? "signature cut." : "cut, together."}</Text>
+          <Text style={styles.subtitle}>
+            {mode === "Customer"
+              ? "Explore a new style on a rotatable 3D head."
+              : "Preview styles with your client before the first clip."}
+          </Text>
+        </View>
+
+        <View style={styles.viewerCard}>
+          <View style={styles.viewerTopline}>
+            <View style={styles.liveDot} />
+            <Text style={styles.viewerLabel}>{angleLabel}</Text>
+            <View style={styles.previewBadge}>
+              <Text style={styles.previewBadgeText}>CONCEPT MODEL</Text>
+            </View>
+          </View>
+          <ModelStage style={selectedStyle} onRotate={() => undefined} />
+          <View style={styles.angleRow}>
+            {["Front", "3/4 view", "Side"].map((label) => (
+              <Pressable
+                key={label}
+                onPress={() => chooseAngle(label.toUpperCase(), label === "Front" ? 0 : label === "Side" ? Math.PI / 2 : Math.PI / 4)}
+                style={[styles.angleButton, angleLabel === label.toUpperCase() && styles.angleButtonActive]}
+              >
+                <Text style={[styles.angleText, angleLabel === label.toUpperCase() && styles.angleTextActive]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Choose a direction</Text>
+            <Text style={styles.sectionSub}>Styles are demo presets for now</Text>
+          </View>
+          <Pressable onPress={() => setSaved((value) => !value)} style={styles.saveButton}>
+            <Text style={styles.saveButtonText}>{saved ? "♥ Saved" : "♡ Save"}</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.styleList}>
+          {HAIR_STYLES.map((style, index) => {
+            const active = style.id === selectedStyle.id;
+            return (
+              <Pressable
+                key={style.id}
+                onPress={() => {
+                  setSelectedStyle(style);
+                  setSaved(false);
+                }}
+                style={[styles.styleCard, active && styles.styleCardActive]}
+              >
+                <View style={[styles.styleSwatch, { backgroundColor: ["#39302A", "#3A3028", "#4B3B30", "#302B28"][index] }]}>
+                  <View style={[styles.swatchHead, { height: style.id === "buzz" ? 37 : style.id === "curly" ? 48 : 43 }]}>
+                    <View style={styles.swatchHair} />
+                  </View>
+                </View>
+                <Text style={[styles.styleName, active && styles.styleNameActive]}>{style.name}</Text>
+                <Text style={styles.styleDescription}>{style.description}</Text>
+                {active && <View style={styles.selectedLine} />}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {mode === "Barber" && (
+          <View style={styles.planCard}>
+            <View style={styles.planIcon}><Text style={styles.planIconText}>✂</Text></View>
+            <View style={styles.planCopy}>
+              <Text style={styles.planTitle}>Barber cut brief</Text>
+              <Text style={styles.planDescription}>Build a reviewable plan for the selected style.</Text>
+            </View>
+            <Pressable style={styles.planAction} onPress={() => setShowPlan((value) => !value)}>
+              <Text style={styles.planActionText}>{showPlan ? "Hide" : "Open"}</Text>
+            </Pressable>
+            {showPlan && (
+              <View style={styles.planDetails}>
+                <Text style={styles.planStep}>01  Confirm starting length and hair texture.</Text>
+                <Text style={styles.planStep}>02  Agree on fade height and side profile.</Text>
+                <Text style={styles.planStep}>03  Shape the top to match the chosen reference.</Text>
+                <Text style={styles.planNote}>Draft checklist only — not AI-generated or validated cutting instructions.</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        <Pressable
+          style={styles.primaryButton}
+          onPress={() => mode === "Customer" ? setMode("Barber") : setShowPlan((value) => !value)}
+        >
+          <Text style={styles.primaryButtonText}>
+            {mode === "Customer" ? "Share with a barber" : "Create cut brief"}  ↗
+          </Text>
+        </Pressable>
+
+        <Text style={styles.disclaimer}>
+          Prototype preview · This is a procedural demo head, not a scan of your face. Haircut previews and cutting plans are not yet AI-generated.
+        </Text>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>WATFA © 2026</Text>
+          <Text style={styles.footerText}>MADE FOR THE CRAFT</Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: "#111211" },
+  page: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36, maxWidth: 560, width: "100%", alignSelf: "center" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 30 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 11 },
+  brandMark: { width: 42, height: 42, borderRadius: 14, backgroundColor: "#D8B68A", alignItems: "center", justifyContent: "center" },
+  brandMarkText: { color: "#171713", fontSize: 23, fontWeight: "800", letterSpacing: -1 },
+  brandName: { color: "#F4F0E9", fontSize: 15, fontWeight: "800", letterSpacing: 3.5 },
+  brandSub: { color: "#85857D", fontSize: 9, letterSpacing: 1.8, marginTop: 3 },
+  avatarButton: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: "#41413B", alignItems: "center", justifyContent: "center", backgroundColor: "#1C1D1A" },
+  avatarInitial: { color: "#D8B68A", fontSize: 14, fontWeight: "700" },
+  modeRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 18, flexWrap: "wrap" },
+  eyebrow: { color: "#BFA17B", fontSize: 9, fontWeight: "700", letterSpacing: 1.6 },
+  modeSwitch: { flexDirection: "row", backgroundColor: "#1B1C19", padding: 3, borderRadius: 12, gap: 2 },
+  pill: { paddingHorizontal: 11, paddingVertical: 7, borderRadius: 9 },
+  pillActive: { backgroundColor: "#D8B68A" },
+  pillText: { color: "#9B9A91", fontSize: 11, fontWeight: "600" },
+  pillTextActive: { color: "#1B1A17" },
+  intro: { marginBottom: 22 },
+  title: { color: "#F4F0E9", fontSize: 32, lineHeight: 36, fontWeight: "700", letterSpacing: -1.2 },
+  titleAccent: { color: "#D8B68A" },
+  subtitle: { color: "#A2A198", fontSize: 13, lineHeight: 20, marginTop: 10, maxWidth: 310 },
+  viewerCard: { backgroundColor: "#171817", borderColor: "#2B2C28", borderWidth: 1, borderRadius: 22, padding: 12, overflow: "hidden" },
+  viewerTopline: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 5, paddingTop: 4 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#D8B68A" },
+  viewerLabel: { color: "#DAD6CC", fontSize: 10, fontWeight: "700", letterSpacing: 1.4, flex: 1 },
+  previewBadge: { backgroundColor: "#2A2924", paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6 },
+  previewBadgeText: { color: "#C7B08D", fontSize: 8, fontWeight: "700", letterSpacing: 0.6 },
+  modelStage: { height: 340, alignItems: "center", justifyContent: "center", marginTop: 2, overflow: "hidden" },
+  modelGlow: { position: "absolute", width: 220, height: 220, borderRadius: 110, backgroundColor: "#393126", opacity: 0.24 },
+  dragHint: { position: "absolute", bottom: 6, backgroundColor: "#252622", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
+  dragHintText: { color: "#BDB9AE", fontSize: 9, letterSpacing: 1.2, fontWeight: "700" },
+  angleRow: { flexDirection: "row", backgroundColor: "#20211E", borderRadius: 12, padding: 4, gap: 3, marginTop: 1 },
+  angleButton: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 9 },
+  angleButtonActive: { backgroundColor: "#D8B68A" },
+  angleText: { color: "#A4A399", fontSize: 11, fontWeight: "600" },
+  angleTextActive: { color: "#191915" },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 29, marginBottom: 15 },
+  sectionTitle: { color: "#F0ECE4", fontSize: 17, fontWeight: "700", letterSpacing: -0.3 },
+  sectionSub: { color: "#8F9087", fontSize: 11, marginTop: 5 },
+  saveButton: { borderColor: "#393A34", borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  saveButtonText: { color: "#D8B68A", fontSize: 11, fontWeight: "700" },
+  styleList: { gap: 10, paddingBottom: 5 },
+  styleCard: { width: 145, backgroundColor: "#1A1B18", borderColor: "#2B2C27", borderWidth: 1, borderRadius: 15, padding: 8, overflow: "hidden" },
+  styleCardActive: { borderColor: "#D8B68A", backgroundColor: "#24221D" },
+  styleSwatch: { height: 78, borderRadius: 9, alignItems: "center", justifyContent: "center", marginBottom: 10 },
+  swatchHead: { width: 42, borderRadius: 23, backgroundColor: "#C99170", alignItems: "center", overflow: "hidden" },
+  swatchHair: { width: 43, height: 17, borderRadius: 15, backgroundColor: "#292522", marginTop: -2 },
+  styleName: { color: "#DAD6CD", fontSize: 12, fontWeight: "700" },
+  styleNameActive: { color: "#E3C69D" },
+  styleDescription: { color: "#929188", fontSize: 9, marginTop: 5, lineHeight: 13 },
+  selectedLine: { height: 2, backgroundColor: "#D8B68A", borderRadius: 1, marginTop: 9 },
+  planCard: { marginTop: 20, backgroundColor: "#1C1D19", borderColor: "#35352E", borderWidth: 1, borderRadius: 16, padding: 14, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 10 },
+  planIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: "#343027", alignItems: "center", justifyContent: "center" },
+  planIconText: { color: "#D8B68A", fontSize: 19 },
+  planCopy: { flex: 1, minWidth: 130 },
+  planTitle: { color: "#F0ECE4", fontSize: 12, fontWeight: "700" },
+  planDescription: { color: "#9C9C91", fontSize: 10, marginTop: 4 },
+  planAction: { backgroundColor: "#D8B68A", borderRadius: 9, paddingHorizontal: 12, paddingVertical: 9 },
+  planActionText: { color: "#1A1916", fontSize: 10, fontWeight: "800" },
+  planDetails: { width: "100%", borderTopWidth: 1, borderTopColor: "#36362F", paddingTop: 12, gap: 9 },
+  planStep: { color: "#D7D2C8", fontSize: 11, lineHeight: 17 },
+  planNote: { color: "#C8A97F", fontSize: 10, lineHeight: 15, marginTop: 3 },
+  primaryButton: { backgroundColor: "#D8B68A", borderRadius: 14, alignItems: "center", paddingVertical: 16, marginTop: 22 },
+  primaryButtonText: { color: "#1B1A17", fontSize: 13, fontWeight: "800", letterSpacing: 0.2 },
+  disclaimer: { color: "#77786F", fontSize: 10, lineHeight: 16, textAlign: "center", marginTop: 15, paddingHorizontal: 6 },
+  footer: { flexDirection: "row", justifyContent: "space-between", marginTop: 25, paddingTop: 15, borderTopWidth: 1, borderTopColor: "#292A26" },
+  footerText: { color: "#6E7067", fontSize: 8, fontWeight: "700", letterSpacing: 1.2 },
+});
