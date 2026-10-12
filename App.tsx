@@ -18,6 +18,7 @@ import {
 import { Canvas } from "@react-three/fiber/native";
 import * as THREE from "three";
 import * as ImagePicker from "expo-image-picker";
+import ARHairlineOverlay from "./src/ARHairlineOverlay";
 import { AppointmentRow, BarberRow, HaircutHistoryRow, ServiceRow, getConfiguredEndpoint, isSupabaseConfigured, supabase } from "./src/backend";
 
 type HairStyle = {
@@ -59,6 +60,53 @@ const HAIR_STYLES: HairStyle[] = [
   },
 ];
 
+
+function HairStrands({ style }: { style: HairStyle }) {
+  const strands = useMemo(() => {
+    const result: { curve: THREE.CatmullRomCurve3; radius: number; color: string }[] = [];
+    const count = style.id === "buzz" ? 54 : style.id === "curly" ? 145 : 112;
+    for (let i = 0; i < count; i++) {
+      // Golden-angle distribution gives deterministic, evenly spaced fine strands.
+      const u = (i + 0.5) / count;
+      const theta = Math.acos(1 - u * 0.92);
+      const phi = i * 2.399963229728653;
+      const points: THREE.Vector3[] = [];
+      const length = style.id === "buzz" ? 0.035 : style.id === "curly" ? 0.17 : 0.13;
+      const bend = Math.sin(i * 12.9898) * 0.035;
+      for (let step = 0; step < 4; step++) {
+        const t = step / 3;
+        const a = theta + t * (style.id === "buzz" ? 0.025 : 0.18);
+        const b = phi + t * bend;
+        const x = Math.sin(a) * Math.cos(b);
+        const z = Math.sin(a) * Math.sin(b);
+        const y = Math.cos(a);
+        points.push(new THREE.Vector3(
+          x * style.topScale[0] * (1 + t * 0.045),
+          0.58 + y * style.topScale[1] + t * length * 0.35,
+          -0.005 + z * style.topScale[2]
+        ));
+      }
+      result.push({
+        curve: new THREE.CatmullRomCurve3(points),
+        radius: style.id === "buzz" ? 0.0022 : 0.003,
+        color: ["#171513", "#332B25", "#45372D", "#241F1B"][i % 4],
+      });
+    }
+    return result;
+  }, [style]);
+
+  return (
+    <group>
+      {strands.map((strand, index) => (
+        <mesh key={index}>
+          <tubeGeometry args={[strand.curve, 5, strand.radius, 4, false]} />
+          <meshStandardMaterial color={strand.color} roughness={0.82} metalness={0.02} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function HeadModel({ style, rotation }: { style: HairStyle; rotation: number }) {
   const skin = "#C99170";
   const hair = "#292522";
@@ -85,6 +133,7 @@ function HeadModel({ style, rotation }: { style: HairStyle; rotation: number }) 
         <sphereGeometry args={[1, 40, 28]} />
         <meshStandardMaterial color={hair} roughness={0.93} />
       </mesh>
+      <HairStrands style={style} />
       {style.fringe && (
         <mesh position={[0, 0.42, 0.59]} rotation={[0.15, 0, 0]} scale={[0.57, 0.17, 0.16]}>
           <sphereGeometry args={[1, 28, 20]} />
@@ -217,6 +266,7 @@ export default function App() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [generatedPreviewUri, setGeneratedPreviewUri] = useState<string | null>(null);
+  const [arOpen, setArOpen] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -405,6 +455,8 @@ export default function App() {
     setModelRotation(degrees);
   };
 
+  if (arOpen) return <ARHairlineOverlay onClose={() => setArOpen(false)} onCapture={(uri) => { setFacePhotoUri(uri); setArOpen(false); setRecommendation(null); setPreviewMessage(null); }} />;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#111211" />
@@ -487,8 +539,11 @@ export default function App() {
               <Text style={styles.photoPlaceholderText}>No photo captured</Text>
             </View>
           )}
+          <Pressable style={styles.secondaryButton} onPress={() => setArOpen(true)}>
+            <Text style={styles.secondaryButtonText}>Try AR hairline guide ↗</Text>
+          </Pressable>
           <Pressable style={styles.secondaryButton} onPress={captureFacePhoto}>
-            <Text style={styles.secondaryButtonText}>{facePhotoUri ? "Retake face photo" : "Open camera"}</Text>
+            <Text style={styles.secondaryButtonText}>{facePhotoUri ? "Retake face photo" : "Take a photo"}</Text>
           </Pressable>
           <Text style={styles.privacyNote}>Privacy: this prototype keeps the photo URI in the current app session. It does not upload or save the image to an account.</Text>
         </View>
@@ -525,7 +580,7 @@ export default function App() {
             <View style={styles.liveDot} />
             <Text style={styles.viewerLabel}>{angleLabel}</Text>
             <View style={styles.previewBadge}>
-              <Text style={styles.previewBadgeText}>CONCEPT MODEL</Text>
+              <Text style={styles.previewBadgeText}>STRAND DETAIL</Text>
             </View>
           </View>
           <ModelStage style={selectedStyle} rotation={modelRotation} onRotate={setModelRotation} />
@@ -627,7 +682,7 @@ export default function App() {
         </View>
 
         <Text style={styles.disclaimer}>
-          Prototype preview · This is a procedural demo head, not a scan of your face. Haircut previews and cutting plans are not yet AI-generated.
+          Prototype preview · The 3D head and individual hair strands are procedural approximations, not a photorealistic scan. The camera guide is manually aligned and does not track facial landmarks yet.
         </Text>
         <View style={styles.footer}>
           <Text style={styles.footerText}>WATFA © 2026</Text>
