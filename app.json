@@ -13,9 +13,6 @@
     "android": {
       "package": "com.yazoniplay.watfa",
       "edgeToEdgeEnabled": true
-    },
-    "plugins": [
-      "expo-gl"
-    ]
+    }
   }
 }
