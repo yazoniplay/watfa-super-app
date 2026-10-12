@@ -196,6 +196,108 @@ export default function App() {
   const [hairTexture, setHairTexture] = useState<"Straight" | "Wavy" | "Curly" | "Coily" | "Not sure">("Not sure");
   const [recommendation, setRecommendation] = useState<string | null>(null);
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [accountMessage, setAccountMessage] = useState<string | null>(null);
+  const [history, setHistory] = useState<HaircutHistoryRow[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
+  const [barbers, setBarbers] = useState<BarberRow[]>([]);
+  const [services, setServices] = useState<ServiceRow[]>([]);
+  const [selectedBarber, setSelectedBarber] = useState("");
+  const [selectedService, setSelectedService] = useState("");
+  const [bookingTime, setBookingTime] = useState("");
+  const [bookingMessage, setBookingMessage] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [generatedPreviewUri, setGeneratedPreviewUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabase.auth.getSession().then(({ data }) => setSessionEmail(data.session?.user.email ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setSessionEmail(session?.user.email ?? null));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !sessionEmail) { setHistory([]); setAppointments([]); return; }
+    void loadAccountData();
+  }, [sessionEmail]);
+
+  const loadAccountData = async () => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+    const [h, a] = await Promise.all([
+      supabase.from("haircut_history").select("id,style_name,notes,created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(30),
+      supabase.from("appointments").select("id,starts_at,ends_at,status,payment_status,services(name,price_minor,currency),barber_profiles(shop_name,city)").eq("customer_id", user.id).order("starts_at", { ascending: true }).limit(30),
+    ]);
+    if (!h.error) setHistory((h.data ?? []) as HaircutHistoryRow[]);
+    if (!a.error) setAppointments((a.data ?? []) as unknown as AppointmentRow[]);
+  };
+
+  const authenticate = async () => {
+    if (!isSupabaseConfigured) { setAccountMessage("Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to enable accounts."); return; }
+    if (!authEmail.trim() || authPassword.length < 8) { setAccountMessage("Enter an email and a password with at least 8 characters."); return; }
+    setAuthBusy(true);
+    setAccountMessage(null);
+    const result = isSignUp
+      ? await supabase.auth.signUp({ email: authEmail.trim(), password: authPassword, options: { data: { display_name: displayName.trim() } } })
+      : await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
+    setAuthBusy(false);
+    if (result.error) setAccountMessage(result.error.message);
+    else if (isSignUp && !result.data.session) setAccountMessage("Account created. Check your email to confirm, then sign in.");
+    else setAccountMessage(isSignUp ? "Account created and signed in." : "Signed in.");
+  };
+
+  const signOut = async () => { await supabase.auth.signOut(); setSessionEmail(null); setAccountMessage("Signed out."); };
+
+  const saveCurrentStyle = async () => {
+    if (!isSupabaseConfigured || !sessionEmail) { setAccountOpen(true); setAccountMessage("Sign in to save styles to your account."); return; }
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+    const result = await supabase.from("haircut_history").insert({ user_id: user.id, style_name: selectedStyle.name, notes: "Face shape: " + faceShape + "; hair texture: " + hairTexture });
+    if (result.error) Alert.alert("Could not save style", result.error.message);
+    else { setSaved(true); await loadAccountData(); Alert.alert("Saved", "Added to your haircut history."); }
+  };
+
+  const loadBookingOptions = async () => {
+    if (!isSupabaseConfigured) { setBookingMessage("Connect Supabase and add real barber profiles/services first."); return; }
+    const [b, s] = await Promise.all([
+      supabase.from("barber_profiles").select("user_id,shop_name,bio,city"),
+      supabase.from("services").select("id,barber_id,name,description,duration_minutes,price_minor,currency").eq("is_active", true),
+    ]);
+    if (b.error || s.error) { setBookingMessage(b.error?.message ?? s.error?.message ?? "Could not load services."); return; }
+    setBarbers((b.data ?? []) as BarberRow[]);
+    setServices((s.data ?? []) as ServiceRow[]);
+    setBookingMessage((b.data?.length ?? 0) ? "Choose a barber and service. Availability still needs server-side confirmation." : "No barbers listed yet. Add real barber profiles and services in Supabase.");
+  };
+
+  const createBooking = async () => {
+    if (!isSupabaseConfigured || !sessionEmail) { setAccountOpen(true); setAccountMessage("Sign in before requesting an appointment."); return; }
+    const service = services.find((item) => item.id === selectedService && item.barber_id === selectedBarber);
+    const start = new Date(bookingTime);
+    if (!service || Number.isNaN(start.getTime()) || start.getTime() <= Date.now()) { setBookingMessage("Choose a barber/service and enter a future date/time, e.g. 2026-12-01T15:30:00+01:00."); return; }
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+    const end = new Date(start.getTime() + service.duration_minutes * 60000);
+    const result = await supabase.from("appointments").insert({ customer_id: user.id, barber_id: selectedBarber, service_id: service.id, starts_at: start.toISOString(), ends_at: end.toISOString(), status: "pending", payment_status: "unpaid" }).select("id").single();
+    if (result.error) { setBookingMessage(result.error.message); return; }
+    setBookingMessage("Appointment request saved as pending. It is not confirmed until availability is confirmed.");
+    await loadAccountData();
+    const checkout = getConfiguredEndpoint("CHECKOUT");
+    if (checkout && result.data?.id) {
+      try {
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        const response = await fetch(checkout, { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) }, body: JSON.stringify({ appointmentId: result.data.id }) });
+        const payload = await response.json();
+        if (response.ok && typeof payload.url === "string") await Linking.openURL(payload.url);
+        else setBookingMessage("Appointment is pending. Checkout failed: " + (payload.error ?? "check endpoint configuration."));
+      } catch { setBookingMessage("Appointment is pending, but checkout could not be reached."); }
+    }
+  };
 
   const captureFacePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
