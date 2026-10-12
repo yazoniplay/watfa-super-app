@@ -376,7 +376,16 @@ export default function App() {
     if (endpoint) {
       try {
         const token = (await supabase.auth.getSession()).data.session?.access_token;
-        let headers: Record<string, string> = token ? { Authorization: "Bearer " + token } : {};
+        if (!token) {
+          setAccountOpen(true);
+          setAccountMessage("Sign in to get AI-powered haircut recommendations.");
+          setPreviewMessage("Sign in first. Your photo is only sent when you request a photo-based recommendation.");
+          return;
+        }
+        let headers: Record<string, string> = {
+          Authorization: "Bearer " + token,
+          apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_OjWA4Hfv4N5dKb9bBbzByA_Zeudgc58",
+        };
         let requestBody: BodyInit;
         if (facePhotoUri) {
           const form = new FormData();
