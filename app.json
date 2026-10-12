@@ -6,6 +6,9 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "experiments": {
+      "baseUrl": "/watfa-super-app"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yazoniplay.watfa"
