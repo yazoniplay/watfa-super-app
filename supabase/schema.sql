@@ -118,10 +118,18 @@ create policy "customers create own pending appointment" on public.appointments
     and status = 'pending'
     and payment_status = 'unpaid'
   );
+-- Customers may update only the status column, and only to cancel their own booking.
+-- This prevents a client from changing payment_status to 'paid' or editing booking details.
+revoke update on public.appointments from authenticated;
+grant update (status) on public.appointments to authenticated;
+
 create policy "customers cancel own appointment" on public.appointments
   for update to authenticated
-  using (customer_id = auth.uid())
-  with check (customer_id = auth.uid() and status = 'cancelled');
+  using (customer_id = (select auth.uid()) and status in ('pending', 'confirmed'))
+  with check (
+    customer_id = (select auth.uid())
+    and status = 'cancelled'
+  );
 
 -- Important:
 -- 1. Never put a Supabase service-role key, AI provider key, or Stripe secret in the app.
