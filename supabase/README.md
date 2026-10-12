@@ -47,7 +47,7 @@ Configure a Stripe webhook pointing to the deployed stripe-webhook function and 
 
 ## 5. Add real barbers and services
 
-The booking screen only lists barbers/services that exist in the database. Add verified barber profiles and services with prices stored in minor currency units (for SEK, öre). The current booking request is a pending request, not guaranteed availability. Add server-side calendar availability, overlap prevention, cancellation/refund handling, and barber confirmation before accepting real bookings.
+The booking screen only lists barbers/services that exist in the database. Add verified barber profiles and services with prices stored in minor currency units (for SEK, öre). The database now validates that a service belongs to the selected barber, checks the appointment duration, and rejects overlapping pending/confirmed bookings for the same barber. A pending request is still not a confirmed appointment, and pending requests hold their slot until cancelled or otherwise resolved. Add calendar availability, pending-request expiry, cancellation/refund handling, and barber confirmation before accepting real bookings.
 
 ## Privacy and launch checklist
 
