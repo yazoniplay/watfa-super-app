@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Watfa",
+    "slug": "watfa-super-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yazoniplay.watfa"
+    },
+    "android": {
+      "package": "com.yazoniplay.watfa",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "expo-gl"
+    ]
+  }
+}
