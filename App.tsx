@@ -1,8 +1,9 @@
-import React, { Suspense, useMemo, useRef, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   PanResponder,
   Pressable,
   SafeAreaView,
@@ -10,12 +11,14 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
 import { Canvas } from "@react-three/fiber/native";
 import * as THREE from "three";
 import * as ImagePicker from "expo-image-picker";
+import { AppointmentRow, BarberRow, HaircutHistoryRow, ServiceRow, getConfiguredEndpoint, isSupabaseConfigured, supabase } from "./src/backend";
 
 type HairStyle = {
   id: string;
@@ -407,10 +410,38 @@ export default function App() {
               <Text style={styles.brandSub}>AI BARBER STUDIO</Text>
             </View>
           </View>
-          <Pressable style={styles.avatarButton} onPress={() => setMode(mode === "Customer" ? "Barber" : "Customer")}>
-            <Text style={styles.avatarInitial}>{mode === "Customer" ? "C" : "B"}</Text>
+          <Pressable style={styles.avatarButton} onPress={() => setAccountOpen((value) => !value)}>
+            <Text style={styles.avatarInitial}>{sessionEmail ? "✓" : "＋"}</Text>
           </Pressable>
         </View>
+
+        {accountOpen && (
+          <View style={styles.featureCard}>
+            <Text style={styles.featureEyebrow}>YOUR WATFA ACCOUNT</Text>
+            <Text style={styles.featureTitle}>{sessionEmail ? "You're signed in" : (isSignUp ? "Create your account" : "Sign in")}</Text>
+            {sessionEmail ? (
+              <>
+                <Text style={styles.featureDescription}>{sessionEmail}</Text>
+                <Pressable style={styles.secondaryButton} onPress={loadAccountData}><Text style={styles.secondaryButtonText}>Refresh saved data</Text></Pressable>
+                <Pressable style={styles.secondaryButton} onPress={signOut}><Text style={styles.secondaryButtonText}>Sign out</Text></Pressable>
+                <Text style={styles.fieldLabel}>Saved haircut history</Text>
+                {history.length ? history.map((item) => <View key={item.id} style={styles.historyRow}><Text style={styles.historyName}>{item.style_name}</Text><Text style={styles.historyDate}>{new Date(item.created_at).toLocaleDateString()}</Text></View>) : <Text style={styles.privacyNote}>No saved styles yet.</Text>}
+                <Text style={styles.fieldLabel}>Appointments</Text>
+                {appointments.length ? appointments.map((item) => <View key={item.id} style={styles.historyRow}><Text style={styles.historyName}>{item.services?.name ?? "Barber appointment"}</Text><Text style={styles.historyDate}>{new Date(item.starts_at).toLocaleString()} · {item.status} · {item.payment_status}</Text></View>) : <Text style={styles.privacyNote}>No appointments yet.</Text>}
+              </>
+            ) : (
+              <>
+                {!isSupabaseConfigured && <Text style={styles.statusMessage}>Add Supabase environment variables to enable accounts.</Text>}
+                {isSignUp && <TextInput value={displayName} onChangeText={setDisplayName} placeholder="Display name (optional)" placeholderTextColor="#77786F" style={styles.textInput} autoCapitalize="words" />}
+                <TextInput value={authEmail} onChangeText={setAuthEmail} placeholder="Email address" placeholderTextColor="#77786F" style={styles.textInput} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+                <TextInput value={authPassword} onChangeText={setAuthPassword} placeholder="Password (8+ characters)" placeholderTextColor="#77786F" style={styles.textInput} secureTextEntry autoCapitalize="none" />
+                <Pressable style={styles.primaryButton} disabled={authBusy} onPress={authenticate}><Text style={styles.primaryButtonText}>{authBusy ? "Please wait…" : (isSignUp ? "Create account" : "Sign in")}</Text></Pressable>
+                <Pressable onPress={() => { setIsSignUp((value) => !value); setAccountMessage(null); }}><Text style={styles.linkText}>{isSignUp ? "Already have an account? Sign in" : "New to Watfa? Create an account"}</Text></Pressable>
+              </>
+            )}
+            {accountMessage && <Text style={styles.statusMessage}>{accountMessage}</Text>}
+          </View>
+        )}
 
         <View style={styles.modeRow}>
           <Text style={styles.eyebrow}>YOUR NEXT LOOK, REIMAGINED</Text>
@@ -506,7 +537,7 @@ export default function App() {
             <Text style={styles.sectionTitle}>Choose a direction</Text>
             <Text style={styles.sectionSub}>Styles are demo presets for now</Text>
           </View>
-          <Pressable onPress={() => setSaved((value) => !value)} style={styles.saveButton}>
+          <Pressable onPress={saveCurrentStyle} style={styles.saveButton}>
             <Text style={styles.saveButtonText}>{saved ? "♥ Saved" : "♡ Save"}</Text>
           </Pressable>
         </View>
@@ -566,6 +597,25 @@ export default function App() {
           </Text>
         </Pressable>
 
+        <View style={styles.featureCard}>
+          <Text style={styles.featureEyebrow}>FIND YOUR BARBER</Text>
+          <Text style={styles.featureTitle}>Book an appointment</Text>
+          <Text style={styles.featureDescription}>Browse services from connected barber accounts. Requests stay pending until the barber confirms availability.</Text>
+          <Pressable style={styles.primaryButton} onPress={() => { setBookingOpen((value) => !value); if (!bookingOpen) void loadBookingOptions(); }}>
+            <Text style={styles.primaryButtonText}>{bookingOpen ? "Close booking" : "Browse barbers ↗"}</Text>
+          </Pressable>
+          {bookingOpen && (
+            <>
+              {barbers.map((barber) => <Pressable key={barber.user_id} style={[styles.optionRow, selectedBarber === barber.user_id && styles.optionRowActive]} onPress={() => { setSelectedBarber(barber.user_id); setSelectedService(""); }}><Text style={styles.historyName}>{barber.shop_name}</Text><Text style={styles.historyDate}>{barber.city ?? "Location not listed"}</Text></Pressable>)}
+              {services.filter((service) => service.barber_id === selectedBarber).map((service) => <Pressable key={service.id} style={[styles.optionRow, selectedService === service.id && styles.optionRowActive]} onPress={() => setSelectedService(service.id)}><Text style={styles.historyName}>{service.name}</Text><Text style={styles.historyDate}>{service.duration_minutes} min · {(service.price_minor / 100).toFixed(2)} {service.currency}</Text></Pressable>)}
+              <TextInput value={bookingTime} onChangeText={setBookingTime} placeholder="Start time: 2026-12-01T15:30:00+01:00" placeholderTextColor="#77786F" style={styles.textInput} autoCapitalize="none" />
+              <Pressable style={styles.primaryButton} onPress={createBooking}><Text style={styles.primaryButtonText}>Request appointment</Text></Pressable>
+              {bookingMessage && <Text style={styles.statusMessage}>{bookingMessage}</Text>}
+              <Text style={styles.privacyNote}>Payments require a trusted checkout endpoint. Never enter card details directly into Watfa.</Text>
+            </>
+          )}
+        </View>
+
         <Text style={styles.disclaimer}>
           Prototype preview · This is a procedural demo head, not a scan of your face. Haircut previews and cutting plans are not yet AI-generated.
         </Text>
@@ -621,6 +671,13 @@ const styles = StyleSheet.create({
   resultTitle: { color: "#E3C69D", fontSize: 12, fontWeight: "800" },
   resultText: { color: "#E3DFD5", fontSize: 12, lineHeight: 19 },
   statusMessage: { color: "#C7B08D", fontSize: 11, lineHeight: 17, marginTop: 4 },
+  textInput: { color: "#F0ECE4", backgroundColor: "#121310", borderColor: "#3A3B34", borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 12, fontSize: 12, marginTop: 5 },
+  linkText: { color: "#D8B68A", fontSize: 11, fontWeight: "700", textAlign: "center", paddingVertical: 10 },
+  historyRow: { borderTopWidth: 1, borderTopColor: "#34352E", paddingVertical: 10, gap: 4 },
+  historyName: { color: "#E7E2D8", fontSize: 12, fontWeight: "700" },
+  historyDate: { color: "#96968B", fontSize: 10, lineHeight: 15 },
+  optionRow: { borderWidth: 1, borderColor: "#36372F", borderRadius: 10, padding: 11, gap: 4, marginTop: 7 },
+  optionRowActive: { borderColor: "#D8B68A", backgroundColor: "#28251F" },
   viewerCard: { backgroundColor: "#171817", borderColor: "#2B2C28", borderWidth: 1, borderRadius: 22, padding: 12, overflow: "hidden" },
   viewerTopline: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 5, paddingTop: 4 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#D8B68A" },
