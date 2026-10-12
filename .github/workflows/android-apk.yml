@@ -13,6 +13,8 @@ jobs:
   build-apk:
     name: Build standalone Android APK
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_AI_PREVIEW_URL: https://vlquvrqrvbscpeihyfsu.supabase.co/functions/v1/ai-preview
     timeout-minutes: 35
 
     steps:
