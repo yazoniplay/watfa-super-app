@@ -326,11 +326,20 @@ export default function App() {
     if (endpoint) {
       try {
         const token = (await supabase.auth.getSession()).data.session?.access_token;
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
-          body: JSON.stringify({ faceShape, hairTexture, selectedStyle: selectedStyle.name }),
-        });
+        let headers: Record<string, string> = token ? { Authorization: "Bearer " + token } : {};
+        let requestBody: BodyInit;
+        if (facePhotoUri) {
+          const form = new FormData();
+          form.append("photo", { uri: facePhotoUri, name: "face-photo.jpg", type: "image/jpeg" } as unknown as Blob);
+          form.append("faceShape", faceShape);
+          form.append("hairTexture", hairTexture);
+          form.append("selectedStyle", selectedStyle.name);
+          requestBody = form;
+        } else {
+          headers["Content-Type"] = "application/json";
+          requestBody = JSON.stringify({ faceShape, hairTexture, selectedStyle: selectedStyle.name });
+        }
+        const response = await fetch(endpoint, { method: "POST", headers, body: requestBody });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error ?? "Recommendation service failed.");
         if (typeof payload.recommendation !== "string") throw new Error("Recommendation service returned an invalid response.");
