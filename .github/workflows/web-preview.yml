@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_AI_PREVIEW_URL: https://vlquvrqrvbscpeihyfsu.supabase.co/functions/v1/ai-preview
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
