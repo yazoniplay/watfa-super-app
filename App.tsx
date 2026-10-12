@@ -266,6 +266,7 @@ export default function App() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [generatedPreviewUri, setGeneratedPreviewUri] = useState<string | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
   const [arOpen, setArOpen] = useState(false);
 
   useEffect(() => {
@@ -436,8 +437,11 @@ export default function App() {
       setPreviewMessage("Capture a face photo first.");
       return;
     }
+    if (previewBusy) return;
     try {
-      setPreviewMessage("Uploading your photo to the configured preview service…");
+      setPreviewBusy(true);
+      setGeneratedPreviewUri(null);
+      setPreviewMessage("Generating your hairstyle preview. This can take a little while…");
       const token = (await supabase.auth.getSession()).data.session?.access_token;
       const body = new FormData();
       body.append("photo", { uri: facePhotoUri, name: "face-photo.jpg", type: "image/jpeg" } as unknown as Blob);
@@ -460,6 +464,8 @@ export default function App() {
       setPreviewMessage("Generated preview received. This is an AI visualization, not a guarantee of the final haircut.");
     } catch (error) {
       setPreviewMessage(error instanceof Error ? error.message : "Preview request failed.");
+    } finally {
+      setPreviewBusy(false);
     }
   };
 
@@ -581,8 +587,8 @@ export default function App() {
             <Text style={styles.primaryButtonText}>Suggest styles ↗</Text>
           </Pressable>
           {recommendation && <View style={styles.resultPanel}><Text style={styles.resultTitle}>Your starting point</Text><Text style={styles.resultText}>{recommendation}</Text><Text style={styles.privacyNote}>General style ideas only. Face shape is not a measure of attractiveness, and a barber can adapt the cut to your preferences.</Text></View>}
-          <Pressable style={styles.secondaryButton} onPress={requestRealisticPreview}>
-            <Text style={styles.secondaryButtonText}>Preview on my photo</Text>
+          <Pressable style={[styles.secondaryButton, previewBusy && { opacity: 0.55 }]} disabled={previewBusy} onPress={requestRealisticPreview}>
+            <Text style={styles.secondaryButtonText}>{previewBusy ? "Generating preview…" : "Preview on my photo"}</Text>
           </Pressable>
           {generatedPreviewUri && <Image source={{ uri: generatedPreviewUri }} style={styles.facePhoto} resizeMode="cover" />}
           {previewMessage && <Text style={styles.statusMessage}>{previewMessage}</Text>}
