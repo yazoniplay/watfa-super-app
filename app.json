@@ -13,6 +13,16 @@
     "android": {
       "package": "com.yazoniplay.watfa",
       "edgeToEdgeEnabled": true
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Watfa to take a photo for hairstyle planning.",
+          "photosPermission": "Allow Watfa to select a hairstyle reference photo.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }
