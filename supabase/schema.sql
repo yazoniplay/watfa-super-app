@@ -87,7 +87,7 @@ create or replace function public.validate_watfa_appointment()
 returns trigger
 language plpgsql
 set search_path = ''
-as $
+as $$
 declare
   service_duration integer;
 begin
@@ -112,7 +112,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists validate_watfa_appointment on public.appointments;
 create trigger validate_watfa_appointment
