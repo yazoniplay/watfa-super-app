@@ -216,7 +216,26 @@ export default function App() {
     }
   };
 
-  const getRecommendation = () => {
+  const getRecommendation = async () => {
+    const endpoint = getConfiguredEndpoint("AI_RECOMMEND");
+    if (endpoint) {
+      try {
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+          body: JSON.stringify({ faceShape, hairTexture, selectedStyle: selectedStyle.name }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error ?? "Recommendation service failed.");
+        if (typeof payload.recommendation !== "string") throw new Error("Recommendation service returned an invalid response.");
+        setRecommendation(payload.recommendation);
+        return;
+      } catch (error) {
+        setPreviewMessage(error instanceof Error ? error.message : "AI recommendation request failed.");
+        return;
+      }
+    }
     const candidates = faceShape === "Round"
       ? ["Textured crop", "Classic sweep"]
       : faceShape === "Square"
@@ -231,11 +250,40 @@ export default function App() {
       : hairTexture === "Straight"
         ? "Ask for texture on top if you want more movement."
         : "Show your barber a reference photo and confirm how much daily styling you want to do.";
-    setRecommendation(`${candidates.join(" or ")}. ${textureNote}`);
+    setRecommendation(candidates.join(" or ") + ". " + textureNote);
   };
 
-  const requestRealisticPreview = () => {
-    setPreviewMessage("Realistic photo-based previews need a secure image-generation backend. Watfa has not uploaded your photo or generated an edited image.");
+  const requestRealisticPreview = async () => {
+    const endpoint = getConfiguredEndpoint("AI_PREVIEW");
+    if (!endpoint) {
+      setPreviewMessage("Add EXPO_PUBLIC_AI_PREVIEW_URL pointing to your secure image-editing backend. No photo was uploaded.");
+      return;
+    }
+    if (!facePhotoUri) {
+      setPreviewMessage("Capture a face photo first.");
+      return;
+    }
+    try {
+      setPreviewMessage("Uploading your photo to the configured preview service…");
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const body = new FormData();
+      body.append("photo", { uri: facePhotoUri, name: "face-photo.jpg", type: "image/jpeg" } as unknown as Blob);
+      body.append("style", selectedStyle.name);
+      body.append("faceShape", faceShape);
+      body.append("hairTexture", hairTexture);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: token ? { Authorization: "Bearer " + token } : undefined,
+        body,
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? "Preview generation failed.");
+      if (typeof payload.imageUrl !== "string") throw new Error("Preview service must return an imageUrl.");
+      setGeneratedPreviewUri(payload.imageUrl);
+      setPreviewMessage("Generated preview received. This is an AI visualization, not a guarantee of the final haircut.");
+    } catch (error) {
+      setPreviewMessage(error instanceof Error ? error.message : "Preview request failed.");
+    }
   };
 
   const chooseAngle = (label: string, degrees: number) => {
