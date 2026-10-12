@@ -1,6 +1,8 @@
 import React, { Suspense, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   PanResponder,
   Pressable,
   SafeAreaView,
@@ -13,6 +15,7 @@ import {
 } from "react-native";
 import { Canvas } from "@react-three/fiber/native";
 import * as THREE from "three";
+import * as ImagePicker from "expo-image-picker";
 
 type HairStyle = {
   id: string;
@@ -188,6 +191,52 @@ export default function App() {
   const [angleLabel, setAngleLabel] = useState("FRONT");
   const [modelRotation, setModelRotation] = useState(0);
   const [showPlan, setShowPlan] = useState(false);
+  const [facePhotoUri, setFacePhotoUri] = useState<string | null>(null);
+  const [faceShape, setFaceShape] = useState<"Oval" | "Round" | "Square" | "Heart" | "Not sure">("Not sure");
+  const [hairTexture, setHairTexture] = useState<"Straight" | "Wavy" | "Curly" | "Coily" | "Not sure">("Not sure");
+  const [recommendation, setRecommendation] = useState<string | null>(null);
+  const [previewMessage, setPreviewMessage] = useState<string | null>(null);
+
+  const captureFacePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Camera permission needed", "Allow camera access in Android settings to take a face photo. Watfa will not upload it from this screen.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      quality: 0.85,
+      cameraType: ImagePicker.CameraType.front,
+    });
+    if (!result.canceled && result.assets[0]?.uri) {
+      setFacePhotoUri(result.assets[0].uri);
+      setRecommendation(null);
+      setPreviewMessage(null);
+    }
+  };
+
+  const getRecommendation = () => {
+    const candidates = faceShape === "Round"
+      ? ["Textured crop", "Classic sweep"]
+      : faceShape === "Square"
+        ? ["Curly top", "Classic sweep"]
+        : faceShape === "Heart"
+          ? ["Textured crop", "Curly top"]
+          : faceShape === "Oval"
+            ? ["Textured crop", "Curly top", "Classic sweep"]
+            : ["Textured crop", "Curly top"];
+    const textureNote = hairTexture === "Curly" || hairTexture === "Coily"
+      ? "Keep your natural texture and ask the barber to shape the sides around your curl pattern."
+      : hairTexture === "Straight"
+        ? "Ask for texture on top if you want more movement."
+        : "Show your barber a reference photo and confirm how much daily styling you want to do.";
+    setRecommendation(`${candidates.join(" or ")}. ${textureNote}`);
+  };
+
+  const requestRealisticPreview = () => {
+    setPreviewMessage("Realistic photo-based previews need a secure image-generation backend. Watfa has not uploaded your photo or generated an edited image.");
+  };
 
   const chooseAngle = (label: string, degrees: number) => {
     setAngleLabel(label);
@@ -352,6 +401,27 @@ const styles = StyleSheet.create({
   title: { color: "#F4F0E9", fontSize: 32, lineHeight: 36, fontWeight: "700", letterSpacing: -1.2 },
   titleAccent: { color: "#D8B68A" },
   subtitle: { color: "#A2A198", fontSize: 13, lineHeight: 20, marginTop: 10, maxWidth: 310 },
+  featureCard: { marginTop: 18, backgroundColor: "#191A17", borderColor: "#30312B", borderWidth: 1, borderRadius: 20, padding: 15, gap: 11 },
+  featureHeadingRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  featureHeadingCopy: { flex: 1 },
+  featureIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: "#343027", alignItems: "center", justifyContent: "center" },
+  featureIconText: { color: "#D8B68A", fontSize: 25 },
+  featureEyebrow: { color: "#BFA17B", fontSize: 9, fontWeight: "800", letterSpacing: 1.6 },
+  featureTitle: { color: "#F0ECE4", fontSize: 17, fontWeight: "700", marginTop: 5 },
+  featureDescription: { color: "#A2A198", fontSize: 11, lineHeight: 17, marginTop: 5 },
+  photoPlaceholder: { height: 150, borderRadius: 13, borderWidth: 1, borderColor: "#383931", borderStyle: "dashed", alignItems: "center", justifyContent: "center", backgroundColor: "#141512" },
+  photoPlaceholderIcon: { color: "#D8B68A", fontSize: 30 },
+  photoPlaceholderText: { color: "#8F9087", fontSize: 11, marginTop: 6 },
+  facePhoto: { width: "100%", height: 260, borderRadius: 13, backgroundColor: "#242520" },
+  secondaryButton: { borderColor: "#4A4539", borderWidth: 1, borderRadius: 12, alignItems: "center", paddingVertical: 13, marginTop: 2 },
+  secondaryButtonText: { color: "#D8B68A", fontSize: 12, fontWeight: "800" },
+  privacyNote: { color: "#7E8076", fontSize: 10, lineHeight: 15, marginTop: 2 },
+  fieldLabel: { color: "#D7D2C8", fontSize: 11, fontWeight: "700", marginTop: 3 },
+  choiceWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  resultPanel: { backgroundColor: "#24231E", borderRadius: 12, padding: 12, gap: 7 },
+  resultTitle: { color: "#E3C69D", fontSize: 12, fontWeight: "800" },
+  resultText: { color: "#E3DFD5", fontSize: 12, lineHeight: 19 },
+  statusMessage: { color: "#C7B08D", fontSize: 11, lineHeight: 17, marginTop: 4 },
   viewerCard: { backgroundColor: "#171817", borderColor: "#2B2C28", borderWidth: 1, borderRadius: 22, padding: 12, overflow: "hidden" },
   viewerTopline: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 5, paddingTop: 4 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#D8B68A" },
