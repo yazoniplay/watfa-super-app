@@ -4,6 +4,10 @@ Watfa is an iOS and Android app concept connecting customers and barbers. The fi
 
 ## Current prototype
 
+- Front-camera capture with an in-session photo preview
+- Style-finder questionnaire with clearly labelled rule-based suggestions (not AI)
+- Initial Supabase SQL schema for profiles, barber services, haircut history, private scan metadata, and appointments
+
 - Expo + React Native + TypeScript
 - Three.js rendered with React Three Fiber Native
 - Procedural demo head with touch rotation
@@ -37,6 +41,10 @@ npx expo start
 ```
 
 Scan the QR code with Expo Go if the native dependencies are supported by your installed Expo Go version. If the native GL module requires a custom development build, create one using the Expo development-build workflow.
+
+## Backend groundwork and current limitations
+
+The face photo is currently kept only in app state for the current session; Watfa does not upload it. The style finder is rule-based and does not inspect the photo. The **Preview on my photo** action explains that a secure image-generation backend is required; it does not generate an edited image yet. Accounts, persistent history, real booking, and payments are not live. See [`supabase/README.md`](supabase/README.md) and [`supabase/schema.sql`](supabase/schema.sql) for the database foundation. Do not take real bookings or payments until the server-side booking and payment flows are implemented and tested.
 
 ## Planned architecture
 
