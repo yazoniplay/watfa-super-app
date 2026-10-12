@@ -125,29 +125,17 @@ function HeadModel({ style, rotation }: { style: HairStyle; rotation: number }) 
   );
 }
 
-function ModelStage({ style, onRotate }: { style: HairStyle; onRotate: (delta: number) => void }) {
+function ModelStage({ style, rotation, onRotate }: { style: HairStyle; rotation: number; onRotate: (delta: number) => void }) {
   const { width } = useWindowDimensions();
-  const rotation = useRef(0);
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 3,
-        onPanResponderMove: (_, gesture) => {
-          rotation.current = gesture.dx * 0.012;
-          onRotate(rotation.current);
-        },
-        onPanResponderRelease: () => {
-          rotation.current = 0;
-        },
+        onPanResponderMove: (_, gesture) => onRotate(gesture.dx * 0.012),
       }),
     [onRotate],
   );
-
-  const [angle, setAngle] = useState(0);
-  const rotate = (delta: number) => {
-    setAngle((current) => current + delta);
-  };
 
   return (
     <View style={styles.modelStage} {...panResponder.panHandlers}>
@@ -162,7 +150,7 @@ function ModelStage({ style, onRotate }: { style: HairStyle; onRotate: (delta: n
         <directionalLight position={[3, 4, 5]} intensity={2.5} />
         <directionalLight position={[-4, 1, -3]} intensity={1.1} color="#D5A879" />
         <Suspense fallback={null}>
-          <HeadModel style={style} rotation={angle} />
+          <HeadModel style={style} rotation={rotation} />
         </Suspense>
       </Canvas>
       <View style={styles.dragHint} pointerEvents="none">
@@ -197,13 +185,13 @@ export default function App() {
   const [mode, setMode] = useState<"Customer" | "Barber">("Customer");
   const [selectedStyle, setSelectedStyle] = useState(HAIR_STYLES[0]);
   const [saved, setSaved] = useState(false);
-  const [angleLabel, setAngleLabel] = useState("3D PREVIEW");
+  const [angleLabel, setAngleLabel] = useState("FRONT");
+  const [modelRotation, setModelRotation] = useState(0);
   const [showPlan, setShowPlan] = useState(false);
 
   const chooseAngle = (label: string, degrees: number) => {
     setAngleLabel(label);
-    // Angle controls are represented by a lightweight viewer state in this first prototype.
-    setSelectedStyle((current) => current);
+    setModelRotation(degrees);
   };
 
   return (
@@ -251,7 +239,7 @@ export default function App() {
               <Text style={styles.previewBadgeText}>CONCEPT MODEL</Text>
             </View>
           </View>
-          <ModelStage style={selectedStyle} onRotate={() => undefined} />
+          <ModelStage style={selectedStyle} rotation={modelRotation} onRotate={setModelRotation} />
           <View style={styles.angleRow}>
             {["Front", "3/4 view", "Side"].map((label) => (
               <Pressable
