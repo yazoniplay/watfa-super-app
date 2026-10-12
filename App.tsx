@@ -507,6 +507,7 @@ export default function App() {
           <Pressable style={styles.secondaryButton} onPress={requestRealisticPreview}>
             <Text style={styles.secondaryButtonText}>Preview on my photo</Text>
           </Pressable>
+          {generatedPreviewUri && <Image source={{ uri: generatedPreviewUri }} style={styles.facePhoto} resizeMode="cover" />}
           {previewMessage && <Text style={styles.statusMessage}>{previewMessage}</Text>}
         </View>
 
