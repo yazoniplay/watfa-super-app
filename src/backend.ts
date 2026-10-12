@@ -2,14 +2,15 @@ import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// These are public client values; RLS must protect every table. Environment variables override them.
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "https://vlquvrqrvbscpeihyfsu.supabase.co";
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_OjWA4Hfv4N5dKb9bBbzByA_Zeudgc58";
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 export const supabase = createClient(
-  supabaseUrl || "https://example.supabase.co",
-  supabaseAnonKey || "public-anon-key-not-configured",
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       storage: AsyncStorage,
