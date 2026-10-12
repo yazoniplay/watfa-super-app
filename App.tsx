@@ -435,9 +435,13 @@ export default function App() {
       body.append("style", selectedStyle.name);
       body.append("faceShape", faceShape);
       body.append("hairTexture", hairTexture);
+      if (!token) throw new Error("Sign in to Watfa before generating an AI photo preview.");
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: token ? { Authorization: "Bearer " + token } : undefined,
+        headers: {
+          Authorization: "Bearer " + token,
+          apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_OjWA4Hfv4N5dKb9bBbzByA_Zeudgc58",
+        },
         body,
       });
       const payload = await response.json();
