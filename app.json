@@ -25,6 +25,13 @@
           "photosPermission": "Allow Watfa to select a hairstyle reference photo.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Watfa to show a live camera view for the AR-style haircut guide.",
+          "recordAudioPermission": false
+        }
       ]
     ]
   }
