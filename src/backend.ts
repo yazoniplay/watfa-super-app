@@ -58,7 +58,7 @@ export type AppointmentRow = {
 export function getConfiguredEndpoint(name: "AI_PREVIEW" | "AI_RECOMMEND" | "CHECKOUT") {
   const endpoints: Record<typeof name, string | undefined> = {
     AI_PREVIEW: process.env.EXPO_PUBLIC_AI_PREVIEW_URL,
-    AI_RECOMMEND: process.env.EXPO_PUBLIC_AI_RECOMMEND_URL,
+    AI_RECOMMEND: process.env.EXPO_PUBLIC_AI_RECOMMEND_URL || "https://vlquvrqrvbscpeihyfsu.supabase.co/functions/v1/ai-recommend",
     CHECKOUT: process.env.EXPO_PUBLIC_CHECKOUT_URL,
   };
   return endpoints[name] || null;
